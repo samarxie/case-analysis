@@ -1,0 +1,45 @@
+SPREADTRUM\samer.xie@bj08730pcw:~/work-document/platform-tools/systrace$ python systrace.py -l
+         gfx - Graphics
+       input - Input
+        view - View System
+     webview - WebView
+          wm - Window Manager
+          am - Activity Manager
+          sm - Sync Manager
+       audio - Audio
+       video - Video
+      camera - Camera
+         hal - Hardware Modules
+         app - Application
+         res - Resource Loading
+      dalvik - Dalvik VM
+          rs - RenderScript
+      bionic - Bionic C Library
+       power - Power Management
+          pm - Package Manager
+          ss - System Server
+    database - Database
+     network - Network
+         adb - ADB
+         pdx - PDX services
+       sched - CPU Scheduling
+         irq - IRQ Events
+         i2c - I2C Events
+        freq - CPU Frequency
+        idle - CPU Idle
+        disk - Disk I/O
+         mmc - eMMC commands
+        load - CPU Load
+        sync - Synchronization
+       workq - Kernel Workqueues
+  memreclaim - Kernel Memory Reclaim
+  regulators - Voltage and Current Regulators
+  binder_driver - Binder Kernel driver
+  binder_lock - Binder global lock trace
+   pagecache - Page cache
+
+
+
+python systrace.py --time 5 -o cap5moreitem.html gfx view webview wm am sm
+video hal app res rs power ss sched irq freq idle load sync workq bionic input
+binder_driver camera

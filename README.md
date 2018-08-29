@@ -4,3 +4,4 @@
 
 包含的内容如下：
 1. 使用taskset 对特定的进程绑定到特定的cpu上 -----DONE
+2. systrace 使用方法
