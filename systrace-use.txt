@@ -1,4 +1,4 @@
-SPREADTRUM\samer.xie@bj08730pcw:~/work-document/platform-tools/systrace$ python systrace.py -l
+python systrace.py -l
          gfx - Graphics
        input - Input
         view - View System
