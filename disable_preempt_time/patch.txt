@@ -1,0 +1,164 @@
+diff --cc arch/arm64/boot/dts/sprd/ums510.dtsi
+index dd2936c,7198138..0000000
+--- a/arch/arm64/boot/dts/sprd/ums510.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums510.dtsi
+diff --git a/arch/arm64/configs/sprd_sharkl5_defconfig b/arch/arm64/configs/sprd_sharkl5_defconfig
+index 12b7a71..d13bee7 100644
+--- a/arch/arm64/configs/sprd_sharkl5_defconfig
++++ b/arch/arm64/configs/sprd_sharkl5_defconfig
+@@ -3396,7 +3396,7 @@ CONFIG_SPRD_DMC_MPU_CORE=y
+ CONFIG_SPRD_DMC_MPU=y
+ CONFIG_SPRD_SYSDUMP=y
+ CONFIG_SPRD_LOOK_AT=y
+-# CONFIG_SPRD_EIRQSOFF is not set
++CONFIG_SPRD_EIRQSOFF=y
+ CONFIG_SPRD_PTM=y
+ # CONFIG_SUNXI_SRAM is not set
+ # CONFIG_SOC_TI is not set
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index b059158..1ae2cd8 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -3307,7 +3307,7 @@ static inline void schedule_debug(struct task_struct *prev)
+ 	/* The idle class should always have a runnable task: */
+ 	BUG();
+ }
+-
++static unsigned long idle_count = 0;
+ /*
+  * __schedule() is the main scheduler function.
+  *
+@@ -3354,12 +3354,15 @@ static void __sched notrace __schedule(bool preempt)
+ 	struct rq_flags rf;
+ 	struct rq *rq;
+ 	int cpu;
+-	u64 wallclock;
+ 
++	u64 wallclock;
++//	u64 enter_schedule = local_clock();
++//	u64 exit_schedule = 0;
+ 	cpu = smp_processor_id();
+ 	rq = cpu_rq(cpu);
+ 	prev = rq->curr;
+ 
++	trace_printk("__schedule_1 prev=%s,prev_pid=%d,preempt=%d,preempt_count=%d\n",prev->comm,prev->pid,preempt,preempt_count());
+ 	schedule_debug(prev);
+ 
+ 	if (sched_feat(HRTICK))
+@@ -3379,7 +3382,6 @@ static void __sched notrace __schedule(bool preempt)
+ 	/* Promote REQ to ACT */
+ 	rq->clock_update_flags <<= 1;
+ 	update_rq_clock(rq);
+-
+ 	switch_count = &prev->nivcsw;
+ 	if (!preempt && prev->state) {
+ 		if (unlikely(signal_pending_state(prev->state, prev))) {
+@@ -3408,14 +3410,12 @@ static void __sched notrace __schedule(bool preempt)
+ 		}
+ 		switch_count = &prev->nvcsw;
+ 	}
+-
+ 	next = pick_next_task(rq, prev, &rf);
+ 	wallclock = walt_ktime_clock();
+ 	walt_update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
+ 	walt_update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
+ 	clear_tsk_need_resched(prev);
+ 	clear_preempt_need_resched();
+-
+ 	if (likely(prev != next)) {
+ #ifdef CONFIG_SCHED_WALT
+ 		if (!prev->on_rq)
+@@ -3441,7 +3441,6 @@ static void __sched notrace __schedule(bool preempt)
+ 		++*switch_count;
+ 
+ 		trace_sched_switch(preempt, prev, next);
+-
+ 		/* Also unlocks the rq: */
+ 		rq = context_switch(rq, prev, next, &rf);
+ 	} else {
+@@ -3450,6 +3449,16 @@ static void __sched notrace __schedule(bool preempt)
+ 	}
+ 
+ 	balance_callback(rq);
++
++	if(!strncmp(prev->comm, "swapper",7)) {
++		idle_count++;
++		if(idle_count % 200 == 0) {
++			printk("[samarxie] exit idle\n");
++			dump_stack();
++		}
++	}
++
++	trace_printk("__schedule_2 prev=%s,prev_pid=%d,next=%s,next_pid=%d,preempt_count=%d\n",prev->comm,prev->pid,next->comm,next->pid,preempt_count());
+ }
+ 
+ void __noreturn do_task_dead(void)
+@@ -3484,11 +3493,44 @@ asmlinkage __visible void __sched schedule(void)
+ {
+ 	struct task_struct *tsk = current;
+ 
++	u64 start_1 = 0;
++	u64 start_2 = 0;
++	u64 disable_pree_time = 0;
++	u64 disable_pree_time_int = 0;
++
++	u64 start_3 = 0;
++	u64 schedule_time = 0;
++	u64 schedule_time_int = 0;
++
++	u64 start_4 = 0;
++	u64 enable_pree_time = 0;
++	u64 enable_pree_time_int = 0;
++	//	u64 enter_schedule = local_clock();
++//	u64 exit_schedule = 0;
+ 	sched_submit_work(tsk);
+ 	do {
++		start_1 = sched_clock();
++		trace_printk("start disable: preempt_count()=%d\n",preempt_count());
+ 		preempt_disable();
++		start_2 = sched_clock();
++		disable_pree_time = start_2 - start_1;
++		disable_pree_time_int = do_div(disable_pree_time, NSEC_PER_MSEC);
++		trace_printk("preempt_disable func time=%lld.%06lldms\n",disable_pree_time,disable_pree_time_int);
+ 		__schedule(false);
++
++		start_3 = sched_clock();
++		schedule_time = start_3 - start_2;
++
++		schedule_time_int = do_div(schedule_time, NSEC_PER_MSEC);
++
++		trace_printk("__schedule func %lld.%06lldms\n",schedule_time,schedule_time_int);
+ 		sched_preempt_enable_no_resched();
++		start_4 = sched_clock();
++		enable_pree_time = start_4 -start_3;
++		enable_pree_time_int = do_div(enable_pree_time, NSEC_PER_MSEC);
++
++		trace_printk("sched_preempt_enable_no_resched func %lld.%06lldms\n",enable_pree_time,enable_pree_time_int);
++		trace_printk("sched_preempt_enable_no_resched func preempt_count=%d\n",preempt_count());
+ 	} while (need_resched());
+ }
+ EXPORT_SYMBOL(schedule);
+@@ -3513,9 +3555,11 @@ void __sched schedule_idle(void)
+ 	 * TASK_RUNNING state.
+ 	 */
+ 	WARN_ON_ONCE(current->state);
++	trace_printk("enter_schedule_idle: preempt_count=%d\n",preempt_count());
+ 	do {
+ 		__schedule(false);
+ 	} while (need_resched());
++	trace_printk("exit_schedule_idle: preempt_count=%d\n",preempt_count());
+ }
+ 
+ #ifdef CONFIG_CONTEXT_TRACKING
+diff --git a/kernel/sched/idle.c b/kernel/sched/idle.c
+index 2e973e6..5782766 100644
+--- a/kernel/sched/idle.c
++++ b/kernel/sched/idle.c
+@@ -269,7 +269,6 @@ static void do_idle(void)
+ 		}
+ 		arch_cpu_idle_exit();
+ 	}
+-
+ 	/*
+ 	 * Since we fell out of the loop above, we know TIF_NEED_RESCHED must
+ 	 * be set, propagate it into PREEMPT_NEED_RESCHED.
